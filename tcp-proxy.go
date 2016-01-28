@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"gopkg.in/redis.v3"
 	"io"
 	"log"
 	"net"
@@ -70,7 +72,7 @@ func proxy(rAddr *net.TCPAddr, c net.Conn) *bytes.Buffer {
 	return &b
 }
 
-func formatBytes(buffer *bytes.Buffer) {
+func formatBytes(buffer *bytes.Buffer) string {
 	var numbers []int
 
 	for _, b := range buffer.Bytes() {
@@ -86,18 +88,42 @@ func formatBytes(buffer *bytes.Buffer) {
 		perc := float64(number) / 94.0
 		note := int((perc * 16.0) + 42.0)
 
-		fmt.Printf("byte %v, perc %v, note %v\n", b, perc, note)
+		// fmt.Printf("byte %v, perc %v, note %v\n", b, perc, note)
 
 		numbers = append(numbers, note)
 	}
 
-	fmt.Printf("numbers %v", numbers)
+	result, err := json.Marshal(numbers)
+
+	if err != nil {
+		log.Print("There was something wrong with making the json from the byte ints")
+		return ""
+	}
+
+	s := string(result)
+
+	// fmt.Printf("result '%s'", s)
+
+	return s
 }
 
-func handleConns(rAddr *net.TCPAddr, in <-chan net.Conn) {
+func enqueue(client *redis.Client, s string) error {
+	log.Print("**** about to send to redis")
+
+	err := client.Publish("notes", s).Err()
+
+	if err != nil {
+		log.Printf("redis error: %v", err)
+	}
+
+	return err
+}
+
+func handleConns(client *redis.Client, rAddr *net.TCPAddr, in <-chan net.Conn) {
 	for c := range in {
 		b := proxy(rAddr, c)
-		formatBytes(b)
+		s := formatBytes(b)
+		enqueue(client, s)
 	}
 }
 
@@ -114,11 +140,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Listening: 9999\nProxying: %v\n\n", rAddr)
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+
+	log.Printf("Listening: 9999\nProxying: %v\n\n", rAddr)
 
 	conns := make(chan net.Conn)
 
-	go handleConns(rAddr, conns)
+	go handleConns(client, rAddr, conns)
 
 	for {
 		conn, err := listener.Accept()
