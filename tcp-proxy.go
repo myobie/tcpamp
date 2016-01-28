@@ -11,7 +11,7 @@ import (
 
 var remoteAddr *string = flag.String("r", "nathanherald.com:80", "remote address")
 
-func proxy(rAddr *net.TCPAddr, c net.Conn) {
+func proxy(rAddr *net.TCPAddr, c net.Conn) *bytes.Buffer {
 	defer c.Close()
 	log.Println("proxying")
 
@@ -67,12 +67,37 @@ func proxy(rAddr *net.TCPAddr, c net.Conn) {
 
 	fmt.Print("\n")
 
-	fmt.Print(b.String())
+	return &b
+}
+
+func formatBytes(buffer *bytes.Buffer) {
+	var numbers []int
+
+	for _, b := range buffer.Bytes() {
+		number := b - 32
+
+		if number < 0 {
+			number = 0
+		}
+		if number > 94 {
+			number = 94
+		}
+
+		perc := float64(number) / 94.0
+		note := int((perc * 16.0) + 42.0)
+
+		fmt.Printf("byte %v, perc %v, note %v\n", b, perc, note)
+
+		numbers = append(numbers, note)
+	}
+
+	fmt.Printf("numbers %v", numbers)
 }
 
 func handleConns(rAddr *net.TCPAddr, in <-chan net.Conn) {
 	for c := range in {
-		proxy(rAddr, c)
+		b := proxy(rAddr, c)
+		formatBytes(b)
 	}
 }
 
