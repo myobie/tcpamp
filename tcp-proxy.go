@@ -35,7 +35,7 @@ func proxy(rAddr *net.TCPAddr, c net.Conn) {
 				break
 			}
 
-			fmt.Print(data[:n])
+			fmt.Print(".")
 			b.Write(data[:n])
 			rConn.Write(data[:n])
 		}
@@ -54,7 +54,7 @@ func proxy(rAddr *net.TCPAddr, c net.Conn) {
 			break
 		}
 
-		fmt.Print(data[:n])
+		fmt.Print(".")
 		rb.Write(data[:n])
 		c.Write(data[:n])
 	}
@@ -65,7 +65,9 @@ func proxy(rAddr *net.TCPAddr, c net.Conn) {
 		log.Fatal(err)
 	}
 
-	log.Printf("b %s", b.String())
+	fmt.Print("\n")
+
+	fmt.Print(b.String())
 }
 
 func handleConns(rAddr *net.TCPAddr, in <-chan net.Conn) {
